@@ -24,11 +24,15 @@ package org.mconf.bbb.chat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.jboss.netty.channel.Channel;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.mconf.bbb.BigBlueButtonClient.OnPrivateChatMessageListener;
 import org.mconf.bbb.BigBlueButtonClient.OnPublicChatMessageListener;
 import org.mconf.bbb.MainRtmpConnection;
@@ -43,6 +47,7 @@ import org.red5.server.api.so.ISharedObjectListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.flazr.amf.Amf0Object;
 import com.flazr.rtmp.message.Command;
 import com.flazr.rtmp.message.CommandAmf0;
 
@@ -175,6 +180,144 @@ public class ChatModule extends Module implements ISharedObjectListener {
 		}
 		return false;
 	}
+	
+	public boolean onChatRequestMessageHistoryReply(String messageFor, Command command) {
+		if (messageFor.equals("ChatRequestMessageHistoryReply")) {
+			publicChatMessages.clear();
+			
+			String cs = command.getArg(1).toString();
+			JSONObject res;
+			try {
+				res = new JSONObject(cs);
+				JSONArray msgs = res.getJSONArray("msg");
+				for(int i=0;i<msgs.length();i++)
+				{
+					JSONObject msg = msgs.getJSONObject(i);
+					Amf0Object obj = new Amf0Object();
+					Map<String,Object> m = new HashMap<>();
+					m.put("message", msg.getString("message"));
+					m.put("username", msg.getString("fromUsername"));
+					m.put("color", msg.getString("fromColor"));
+					m.put("language", "");
+					m.put("userid", msg.getString("fromUserID"));
+					obj.putAll(m);
+					publicChatMessages.add(new ChatMessage(obj));
+				}
+				log.debug("----publicChatMessages size--------"+publicChatMessages.size());
+				for (OnPublicChatMessageListener listener : handler.getContext().getPublicChatMessageListeners())
+					listener.onPublicChatMessage(publicChatMessages, handler.getContext().getUsersModule().getParticipants());
+				return true;
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return false;
+	}
+	
+	public boolean onChatReceivePublicMessageCommand(String messageFor, Command command) {
+		if (messageFor.equals("ChatReceivePublicMessageCommand")) {
+			
+			String cs = command.getArg(1).toString();
+			// addded this to handle messages containing blank spaces .. in this case, json breaks .. need to find a better way of doing this.  
+			// changed for 0.81 compatibility
+			try{
+				if (handler.getContext().getJoinService().getApplicationService().getVersion().equals(ApplicationService.VERSION_0_9))
+				{
+					String part_1 = cs.substring(0,cs.indexOf("message="));
+					String mesg = cs.substring(cs.indexOf("message="),cs.indexOf(", fromUsername"));
+					String part_2 = cs.substring(cs.indexOf(", fromUsername"));
+					mesg = mesg.replace(" ", "BLANK_SPACE");
+					cs = part_1+mesg+part_2;
+				}
+				else if (handler.getContext().getJoinService().getApplicationService().getVersion().equals(ApplicationService.VERSION_0_81))
+				{
+					String part_1 = cs.substring(0,cs.indexOf("message="));
+					String mesg = cs.substring(cs.indexOf("message="),cs.indexOf(", chatType="));
+					String part_2 = cs.substring(cs.indexOf(", chatType="));
+					mesg = mesg.replace(" ", "BLANK_SPACE");
+					cs = part_1+mesg+part_2;
+				}
+			}catch(Exception re){
+				
+			}
+			
+			JSONObject msg;
+			try {
+				msg = new JSONObject(cs);
+				Amf0Object obj = new Amf0Object();
+				Map<String,Object> m = new HashMap<>();
+				m.put("message", msg.getString("message").replace("BLANK_SPACE"," "));
+				m.put("username", msg.getString("fromUsername"));
+				m.put("color", msg.getString("fromColor"));
+				m.put("language", "");
+				m.put("userid", msg.getString("fromUserID"));
+				obj.putAll(m);
+				ChatMessage chatMessage = new ChatMessage(obj);
+				
+				IParticipant source = handler.getContext().getUsersModule().getParticipants().get(msg.getString("fromUserID"));
+				for (OnPublicChatMessageListener listener : handler.getContext().getPublicChatMessageListeners())
+					listener.onPublicChatMessage(chatMessage, source);
+				publicChatMessages.add(chatMessage);
+
+				return true;
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return false;
+	}
+
+	public boolean onChatReceivePrivateMessageCommand(String messageFor, Command command) {
+		if (messageFor.equals("ChatReceivePrivateMessageCommand")) {
+			String cs = command.getArg(1).toString();
+			// addded this to handle messages containing blank spaces .. in this case, json breaks .. need to find a better way of doing this.
+			// changed for 0.81 compatibility
+			try{
+				if (handler.getContext().getJoinService().getApplicationService().getVersion().equals(ApplicationService.VERSION_0_9))
+				{
+					String part_1 = cs.substring(0,cs.indexOf("message="));
+					String mesg = cs.substring(cs.indexOf("message="),cs.indexOf(", fromUsername"));
+					String part_2 = cs.substring(cs.indexOf(", fromUsername"));
+					mesg = mesg.replace(" ", "BLANK_SPACE");
+					cs = part_1+mesg+part_2;
+				}
+				else if (handler.getContext().getJoinService().getApplicationService().getVersion().equals(ApplicationService.VERSION_0_81))
+				{
+					String part_1 = cs.substring(0,cs.indexOf("message="));
+					String mesg = cs.substring(cs.indexOf("message="),cs.indexOf(", chatType="));
+					String part_2 = cs.substring(cs.indexOf(", chatType="));
+					mesg = mesg.replace(" ", "BLANK_SPACE");
+					cs = part_1+mesg+part_2;
+				}
+			}catch(Exception re){
+				
+			}
+			
+			JSONObject msg;
+			try {
+				msg = new JSONObject(cs);
+				Amf0Object obj = new Amf0Object();
+				Map<String,Object> m = new HashMap<>();
+				m.put("message", msg.getString("message").replace("BLANK_SPACE", " "));
+				m.put("username", msg.getString("fromUsername"));
+				m.put("color", msg.getString("fromColor"));
+				m.put("language", "");
+				m.put("userid", msg.getString("fromUserID"));
+				obj.putAll(m);
+				ChatMessage chatMessage = new ChatMessage(obj);
+				
+		    	onPrivateChatMessage(chatMessage, handler.getContext().getUsersModule().getParticipants().get(msg.getString("fromUserID")));
+
+				return true;
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return false;
+	}
 
 	/**
 	 * {@link} https://github.com/bigbluebutton/bigbluebutton/blob/master/bigbluebutton-client/src/org/bigbluebutton/modules/chat/services/PublicChatSharedObjectService.as#L89
@@ -183,11 +326,35 @@ public class ChatModule extends Module implements ISharedObjectListener {
 	public void sendPublicChatMessage(String message) {
 		ChatMessage chatMessage = new ChatMessage();
 		chatMessage.setMessage(message);
-		chatMessage.setUsername(handler.getContext().getJoinService().getJoinedMeeting().getFullname());
-		chatMessage.setUserId(handler.getContext().getMyUserId());
-
-    	Command command = new CommandAmf0("chat.sendMessage", null, chatMessage.encode());
-    	handler.writeCommandExpectingResult(channel, command);
+		if (handler.getContext().getJoinService().getApplicationService().getVersion().equals(ApplicationService.VERSION_0_9))
+		{
+			chatMessage.setChatType("PUBLIC_CHAT");
+			chatMessage.setFromUserID(handler.getContext().getMyUserId());
+			chatMessage.setFromUsername(handler.getContext().getJoinService().getJoinedMeeting().getFullname());
+			chatMessage.setToUserID("public_chat_userid");
+			chatMessage.setToUsername("public_chat_username");
+			Command command = new CommandAmf0("chat.sendPublicMessage", null, chatMessage.encode0Dot9());
+	    	handler.writeCommandExpectingResult(channel, command);
+		}
+		else if (handler.getContext().getJoinService().getApplicationService().getVersion().equals(ApplicationService.VERSION_0_81))
+		{
+			chatMessage.setChatType("PUBLIC_CHAT");
+			chatMessage.setFromUserID(handler.getContext().getMyUserId());
+			chatMessage.setFromUsername(handler.getContext().getJoinService().getJoinedMeeting().getFullname());
+			chatMessage.setToUserID("public_chat_userid");
+			chatMessage.setToUsername("public_chat_username");
+			chatMessage.setFromTimezoneOffset(chatMessage.getTimeZoneOffset0Dot81());
+			Command command = new CommandAmf0("chat.sendPublicMessage", null, chatMessage.encode0Dot81());
+	    	handler.writeCommandExpectingResult(channel, command);
+		}
+		else
+		{
+			chatMessage.setUsername(handler.getContext().getJoinService().getJoinedMeeting().getFullname());
+			chatMessage.setUserId(handler.getContext().getMyUserId());
+			Command command = new CommandAmf0("chat.sendMessage", null, chatMessage.encode());
+	    	handler.writeCommandExpectingResult(channel, command);
+		}
+    	
 	}
 	
 	/**
@@ -198,12 +365,41 @@ public class ChatModule extends Module implements ISharedObjectListener {
 	public void sendPrivateChatMessage(String message, String userid) {
 		ChatMessage chatMessage = new ChatMessage();
 		chatMessage.setMessage(message);
-		chatMessage.setUsername(handler.getContext().getJoinService().getJoinedMeeting().getFullname());
-		chatMessage.setUserId(handler.getContext().getMyUserId());
-		
-		// \TODO the userId is being passed as Double, but should be passed as String on BigBlueButton 0.81
-    	Command command = new CommandAmf0("chat.privateMessage", null, chatMessage.encode(), Double.valueOf(handler.getContext().getMyUserId()), Double.valueOf(userid));
-    	handler.writeCommandExpectingResult(channel, command);
+		if (handler.getContext().getJoinService().getApplicationService().getVersion().equals(ApplicationService.VERSION_0_9))
+		{
+			chatMessage.setChatType("PRIVATE_CHAT");
+			chatMessage.setFromUserID(handler.getContext().getMyUserId());
+			chatMessage.setFromUsername(handler.getContext().getJoinService().getJoinedMeeting().getFullname());
+			chatMessage.setToUserID(userid);
+			chatMessage.setToUsername(handler.getContext().getUsersModule().getParticipants().get(userid).getName());
+			// also set these v0.8 fields as they are needed later for notification
+			chatMessage.setUsername(handler.getContext().getJoinService().getJoinedMeeting().getFullname());
+			chatMessage.setUserId(handler.getContext().getMyUserId());
+			Command command = new CommandAmf0("chat.sendPrivateMessage", null, chatMessage.encode0Dot9());
+	    	handler.writeCommandExpectingResult(channel, command);
+		}
+		else if (handler.getContext().getJoinService().getApplicationService().getVersion().equals(ApplicationService.VERSION_0_81))
+		{
+			chatMessage.setChatType("PRIVATE_CHAT");
+			chatMessage.setFromUserID(handler.getContext().getMyUserId());
+			chatMessage.setFromUsername(handler.getContext().getJoinService().getJoinedMeeting().getFullname());
+			chatMessage.setToUserID(userid);
+			chatMessage.setToUsername(handler.getContext().getUsersModule().getParticipants().get(userid).getName());
+			// also set these v0.8 fields as they are needed later for notification
+			chatMessage.setUsername(handler.getContext().getJoinService().getJoinedMeeting().getFullname());
+			chatMessage.setUserId(handler.getContext().getMyUserId());
+			chatMessage.setFromTimezoneOffset(chatMessage.getTimeZoneOffset0Dot81());
+			Command command = new CommandAmf0("chat.sendPrivateMessage", null, chatMessage.encode0Dot81());
+	    	handler.writeCommandExpectingResult(channel, command);
+		}
+		else
+		{
+			chatMessage.setUsername(handler.getContext().getJoinService().getJoinedMeeting().getFullname());
+			chatMessage.setUserId(handler.getContext().getMyUserId());
+			// \TODO the userId is being passed as Double, but should be passed as String on BigBlueButton 0.81
+	    	Command command = new CommandAmf0("chat.privateMessage", null, chatMessage.encode(), Double.valueOf(handler.getContext().getMyUserId()), Double.valueOf(userid));
+	    	handler.writeCommandExpectingResult(channel, command);
+		}
 
     	// the message sent should be received like on public chat
     	onPrivateChatMessage(chatMessage, handler.getContext().getUsersModule().getParticipants().get(userid));
@@ -243,6 +439,17 @@ public class ChatModule extends Module implements ISharedObjectListener {
 	@Override
 	public boolean onCommand(String resultFor, Command command) {
 		if (onGetChatMessages(resultFor, command))
+			return true;
+		else
+			return false;
+	}
+
+	public boolean onMessage(String messageFor, Command command) {
+		if (onChatRequestMessageHistoryReply(messageFor, command))
+			return true;
+		else if (onChatReceivePublicMessageCommand(messageFor, command))
+			return true;
+		else if (onChatReceivePrivateMessageCommand(messageFor, command))
 			return true;
 		else
 			return false;

@@ -127,7 +127,11 @@ public class ListenersModule extends Module implements ISharedObjectListener {
 
 	public boolean onGetRoomMuteState(String resultFor, Command command) {
 		if (resultFor.equals("voice.isRoomMuted")) {
-			setRoomMuted((Boolean) command.getArg(0));
+			//changed by Abhay Chaware to auto unmute -- TODO: Check if this is required ?
+			setRoomMuted(false);
+			if(null!=command && null!=command.getArg(0)){
+				setRoomMuted((Boolean) command.getArg(0));
+			}
 			return true;
 		}
 		return false;

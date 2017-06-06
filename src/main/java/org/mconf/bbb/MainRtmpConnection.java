@@ -122,7 +122,9 @@ public class MainRtmpConnection extends RtmpConnection {
 		List<Object> args = new ArrayList<Object>();
 		args.add(meeting.getFullname());
 		args.add(meeting.getRole());
-		args.add(meeting.getConference());
+		// Added bersion check for 0.8 by Abhay for 0.81 compatibility
+		if (!context.getJoinService().getApplicationService().getVersion().equals(ApplicationService.VERSION_0_9) && !context.getJoinService().getApplicationService().getVersion().equals(ApplicationService.VERSION_0_81))
+			args.add(meeting.getConference());
 		if (context.getJoinService().getApplicationService().getVersion().equals(ApplicationService.VERSION_0_7))
 			args.add(meeting.getMode());
 		args.add(meeting.getRoom());
@@ -130,6 +132,8 @@ public class MainRtmpConnection extends RtmpConnection {
 		args.add(meeting.doRecord());
 		args.add(meeting.getExternUserID());
 		args.add(meeting.getInternalUserID());
+		if (context.getJoinService().getApplicationService().getVersion().equals(ApplicationService.VERSION_0_9))
+			args.add(false);
 		if (meeting.isGuestDefined())
 			args.add(meeting.isGuest());
 		
@@ -157,6 +161,26 @@ public class MainRtmpConnection extends RtmpConnection {
     public void doGetMyUserId(Channel channel) {
     	Command command = new CommandAmf0("getMyUserId", null);
     	writeCommandExpectingResult(channel, command);
+    }
+
+    public void doValidateToken(Channel channel) {
+
+    	
+		JoinedMeeting meeting = context.getJoinService().getJoinedMeeting();
+		options.setArgs((Object[]) null);
+    	List<Object> args = new ArrayList<Object>();
+		args.add(meeting.getInternalUserID());
+		args.add(meeting.getAuthToken());
+		options.setArgs(args.toArray());
+    	writeCommandExpectingResult(channel, Command.validateToken(options));
+    }
+
+    public boolean onValidateToken(String resultFor, Command command) {
+    	if (resultFor.equals("validateToken")) {
+
+	    	return true;
+    	} else
+    		return false;
     }
     
     public boolean onGetMyUserId(String resultFor, Command command) {
@@ -189,6 +213,8 @@ public class MainRtmpConnection extends RtmpConnection {
         		break;
         	
 	        case COMMAND_AMF0:
+	            Command command2 = (Command) message;                
+	            String name2 = command2.getName();
 	        case COMMAND_AMF3:
 	            Command command = (Command) message;                
 	            String name = command.getName();
@@ -203,7 +229,16 @@ public class MainRtmpConnection extends RtmpConnection {
 	                if(resultFor.equals("connect")) {
 	                	String code = connectGetCode(command);
 	                	if (code.equals("NetConnection.Connect.Success"))
-	                		doGetMyUserId(channel);
+	                	{
+	                		if (context.getJoinService().getApplicationService().getVersion().equals(ApplicationService.VERSION_0_9))
+	                		{
+                				doValidateToken(channel);
+	                		}
+	                		else
+	                		{
+	                			doGetMyUserId(channel);
+	                		}
+	                	}
 	                	else {
 	                		log.error("method connect result in {}, quitting", code);
 	                		log.debug("connect response: {}", command.toString());
@@ -213,9 +248,33 @@ public class MainRtmpConnection extends RtmpConnection {
 	                } else if (onGetMyUserId(resultFor, command)) {
 	                	context.createUsersModule(this, channel);
 	                	break;
-	                } 
+	                } else if (onValidateToken(resultFor, command)) {
+        				context.setMyUserId(context.getJoinService().getJoinedMeeting().getInternalUserID());
+        				connected = true;
+        				for (OnConnectedListener l : context.getConnectedListeners())
+        					l.onConnectedSuccessfully();
+        				context.createUsersModule(this, channel);
+        				break;
+                } 
 	                context.onCommand(resultFor, command);
-                	break;
+	            }
+	            else if (name.equals("onMessageFromServer")){
+	            	try{
+                		if (context.getJoinService().getApplicationService().getVersion().equals(ApplicationService.VERSION_0_9) || context.getJoinService().getApplicationService().getVersion().equals(ApplicationService.VERSION_0_81))
+                		{
+                			context.onMessage(command.getArg(0).toString(), command);
+                		}
+	            	}catch(Exception re){}
+                	
+	            }
+	            else {
+	            	try{
+                		if (context.getJoinService().getApplicationService().getVersion().equals(ApplicationService.VERSION_0_9) || context.getJoinService().getApplicationService().getVersion().equals(ApplicationService.VERSION_0_81))
+                		{
+                			context.onMessage(command.getArg(0).toString(), command);
+                		}
+	            	}catch(Exception re){}
+                	
 	            }
 	            break;
 	            

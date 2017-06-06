@@ -200,6 +200,16 @@ public class BigBlueButtonClient {
 		else
 			return false;
 	}
+	// Added by Abhay Chaware for BBB 0.9 compatibility
+	public boolean onMessage(String messageFor, Command command) {
+		if (usersModule.onMessage(messageFor,command))
+			return true;
+		else if (chatModule.onMessage(messageFor,command))
+				return true;
+			else
+			return false;
+	}
+
 
 	public boolean isConnected() {
 		if (mainConnection == null)
@@ -325,5 +335,6 @@ public class BigBlueButtonClient {
 	public boolean addAudioListener(OnAudioListener listener) { return audioListeners.add(listener); }
 	public boolean removeAudioListener(OnAudioListener listener) { return audioListeners.remove(listener); }
 	public Set<OnAudioListener> getAudioListeners() { return audioListeners; }
+
 
 }

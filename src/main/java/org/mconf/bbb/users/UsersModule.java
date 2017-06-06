@@ -22,11 +22,14 @@
 package org.mconf.bbb.users;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.jboss.netty.channel.Channel;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.mconf.bbb.BigBlueButtonClient.OnKickUserListener;
 import org.mconf.bbb.BigBlueButtonClient.OnParticipantJoinedListener;
 import org.mconf.bbb.BigBlueButtonClient.OnParticipantLeftListener;
@@ -34,6 +37,7 @@ import org.mconf.bbb.BigBlueButtonClient.OnParticipantStatusChangeListener;
 import org.mconf.bbb.MainRtmpConnection;
 import org.mconf.bbb.Module;
 import org.mconf.bbb.api.ApplicationService;
+import org.mconf.bbb.api.JoinedMeeting;
 import org.red5.server.api.IAttributeStore;
 import org.red5.server.api.so.IClientSharedObject;
 import org.red5.server.api.so.ISharedObjectBase;
@@ -189,7 +193,7 @@ public class UsersModule extends Module implements ISharedObjectListener {
 			Map<String, Object> args = (Map<String, Object>) command.getArg(0);
 
 			participants.clear();
-
+			if(args != null){
 			@SuppressWarnings("unused")
 			int count = ((Double) args.get("count")).intValue();
 
@@ -199,9 +203,130 @@ public class UsersModule extends Module implements ISharedObjectListener {
 				Participant p = new Participant((Map<String, Object>) entry.getValue(), joinServiceVersion);
 				onParticipantJoined(p);
 			}
+		}
 			return true;
 		}
 		return false;
+	}
+
+	// Added by Abhay Chaware for BBB 0.9 compatibility
+	public boolean onGetUsers(String messageFor, Command command) {
+		if (messageFor.equals("getUsersReply")) {
+			try{
+				participants.clear();
+				String js = command.getArg(1).toString();
+				JSONObject res = new JSONObject(js);
+				JSONObject msg = res.getJSONObject("msg");
+				JSONArray users = msg.getJSONArray("users");
+				for(int i=0;i<users.length();i++)
+				{
+					JSONObject user = users.getJSONObject(i);
+					Map<String,Object> m = new HashMap();
+					m.put("name", user.getString("name"));
+					m.put("userid", user.getString("userId"));
+					m.put("role", user.getString("role"));
+					Map<String,Object> s = new HashMap();
+					s.put("raiseHand", user.getBoolean("raiseHand"));
+					s.put("hasStream", user.getBoolean("hasStream"));
+					s.put("streamName", user.getString("webcamStream"));
+					s.put("presenter", user.getBoolean("presenter"));
+					m.put("status", s);				
+					Participant p = new Participant(m, joinServiceVersion);
+					onParticipantJoined(p);
+				}
+				
+				joinMySelf();
+				
+				log.debug(res.toString());
+				}
+			catch(Exception r){
+				r.printStackTrace();
+				}
+			return true;
+		}
+		return false;
+	}
+	// Added by Abhay Chaware for BBB 0.9 compatibility
+	public boolean onParticipantsJoined(String messageFor, Command command) {
+		if (messageFor.equals("participantJoined")) {
+			try{
+				//participants.clear();
+				String js = command.getArg(1).toString();
+				JSONObject res = new JSONObject(js);
+				JSONObject msg = res.getJSONObject("msg");
+				JSONObject user = msg.getJSONObject("user");
+				Map<String,Object> m = new HashMap<>();
+				m.put("name", user.getString("name"));
+				m.put("userid", user.getString("userId"));
+				m.put("role", user.getString("role"));
+				Map<String,Object> s = new HashMap<>();
+				s.put("raiseHand", user.getBoolean("raiseHand"));
+				s.put("hasStream", user.getBoolean("hasStream"));
+				s.put("streamName", user.getString("webcamStream"));
+				s.put("presenter", user.getBoolean("presenter"));
+				m.put("status", s);				
+				Participant p = new Participant(m, joinServiceVersion);
+				onParticipantJoined(p);
+				log.debug(res.toString());
+				return true;
+			}
+			catch(Exception r){
+				r.printStackTrace();
+			}
+
+		}
+		return false;
+	}
+
+	// Added by Abhay Chaware for BBB 0.9 compatibility
+	public boolean onParticipantsLeft(String messageFor, Command command) {
+		if (messageFor.equals("participantLeft")) {
+			try{
+				//participants.clear();
+				String js = command.getArg(1).toString();
+				JSONObject res = new JSONObject(js);
+				JSONObject msg = res.getJSONObject("msg");
+				JSONObject user = msg.getJSONObject("user");
+
+				IParticipant p = getParticipant(user.getString("userId"));
+				
+				synchronized (handler.getContext().getParticipantLeftListeners()) {
+					for (OnParticipantLeftListener l : handler.getContext().getParticipantLeftListeners())
+						l.onParticipantLeft(p);
+				}
+
+				if(p.getRole().equals("MODERATOR"))
+					moderatorCount--;
+				else
+					participantCount--;
+
+				log.debug("participantLeft: {}", p);
+				participants.remove(p.getUserId());
+
+				return true;
+			}
+			catch(Exception r){
+				r.printStackTrace();
+			}
+		}
+		return false;
+	}
+
+	// Added by Abhay Chaware for BBB 0.9 compatibility
+	private void joinMySelf() {
+		JoinedMeeting jm = handler.getContext().getJoinService().getJoinedMeeting();
+		Map<String,Object> m = new HashMap();
+		m.put("name", jm.getFullname());
+		m.put("userid", jm.getInternalUserID());
+		m.put("role", jm.getRole());
+		Map<String,Object> s = new HashMap();
+		s.put("raiseHand", false);
+		s.put("hasStream", false);
+		s.put("streamName", "");
+		s.put("presenter", false);
+		m.put("status", s);				
+		Participant p = new Participant(m, joinServiceVersion);
+		onParticipantJoined(p);
 	}
 
 	public Map<String, Participant> getParticipants() {
@@ -304,6 +429,20 @@ public class UsersModule extends Module implements ISharedObjectListener {
 			handler.getContext().createListenersModule(handler, channel);
 			return true;
 		} else
+			return false;
+	}
+
+		// Added by Abhay Chaware for BBB 0.9 compatibility
+	public boolean onMessage(String messageFor, Command command) {
+		if (onGetUsers(messageFor, command)) {
+			handler.getContext().createChatModule(handler, channel);
+			handler.getContext().createListenersModule(handler, channel);
+			return true;
+		} else if (onParticipantsJoined(messageFor, command))
+			return true;
+		else if (onParticipantsLeft(messageFor, command))
+			return true;
+		else
 			return false;
 	}
 

@@ -29,6 +29,8 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.xml.sax.SAXException;
@@ -47,6 +49,7 @@ public class JoinedMeeting {
 	private String mode;
 	private String record;
 	private String welcome;
+	private String authToken;
 	private String message;
 	private String server;
 	private String internalUserID;
@@ -54,9 +57,9 @@ public class JoinedMeeting {
 	private String guest;
 
 	public JoinedMeeting() {
-		
+
 	}
-	
+
 	/*
 	 *  	
 	 * <response>
@@ -75,7 +78,7 @@ public class JoinedMeeting {
 	 * 	<welcome>&lt;br&gt;Welcome to this BigBlueButton Demo Server.&lt;br&gt;&lt;br&gt;For help using BigBlueButton &lt;a href="event:http://www.bigbluebutton.org/content/videos"&gt;&lt;u&gt;check out these videos&lt;/u&gt;&lt;/a&gt;.&lt;br&gt;&lt;br&gt;</welcome>
 	 * </response>
 	 */
-	public void parse(String str) throws UnsupportedEncodingException, SAXException, IOException, ParserConfigurationException {	
+	public void parse(String str) throws UnsupportedEncodingException, SAXException, IOException, ParserConfigurationException {
 		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
 		DocumentBuilder db = dbf.newDocumentBuilder();
 		Document doc = db.parse(new ByteArrayInputStream(str.getBytes("UTF-8")));
@@ -83,8 +86,8 @@ public class JoinedMeeting {
 
 		Element nodeResponse = (Element) doc.getElementsByTagName("response").item(0);
 		returncode = ParserUtils.getNodeValue(nodeResponse, "returncode");
-		
-		if (returncode.equals("SUCCESS")) {		
+
+		if (returncode.equals("SUCCESS")) {
 			fullname = ParserUtils.getNodeValue(nodeResponse, "fullname");
 			confname = ParserUtils.getNodeValue(nodeResponse, "confname");
 			meetingID = ParserUtils.getNodeValue(nodeResponse, "meetingID");
@@ -102,6 +105,41 @@ public class JoinedMeeting {
 			guest = ParserUtils.getNodeValue(nodeResponse, "guest");
 		} else {
 			message = ParserUtils.getNodeValue(nodeResponse, "message");
+
+		}
+	}
+
+	public void parse0Dot9(String str) throws UnsupportedEncodingException, SAXException, IOException,
+			ParserConfigurationException, JSONException {
+		server = "";
+		guest = "";
+		JSONObject res = new JSONObject(str);
+		JSONObject resObject = res.getJSONObject("response");
+		returncode = resObject.getString("returncode");
+		if (returncode.equals("SUCCESS")) {
+			fullname = resObject.getString("fullname");
+			confname = resObject.getString("confname");
+			meetingID = resObject.getString("meetingID");
+			externUserID = resObject.getString("externUserID");
+			internalUserID = resObject.getString("internalUserID");
+			role = resObject.getString("role");
+			conference = resObject.getString("conference");
+			room = resObject.getString("room");
+			voicebridge = resObject.getString("voicebridge");
+			webvoiceconf = resObject.getString("webvoiceconf");
+			mode = resObject.getString("mode");
+			record = resObject.getString("record");
+			welcome = resObject.getString("welcome");
+			authToken = resObject.getString("authToken");
+			// in 0.9 the response does not include server and guest, so
+			// initialized them with "". In case they are not found in
+			// response, it will through exception here, but still be
+			// initialized with ""
+			// server = resObject.getString("server");
+			// guest = resObject.getString("guest");
+		} else {
+			// message = resObject.getString("message");
+			message = "Joined Meeting : Something is not right here.";
 		}
 	}
 
@@ -156,11 +194,11 @@ public class JoinedMeeting {
 	public String getWelcome() {
 		return welcome;
 	}
-	
+
 	public String getMessage() {
 		return message;
 	}
-	
+
 	public String getServer() {
 		return server;
 	}
@@ -168,7 +206,7 @@ public class JoinedMeeting {
 	public boolean isGuestDefined() {
 		return guest.length() > 0;
 	}
-	
+
 	public boolean isGuest() {
 		return guest.equalsIgnoreCase("true");
 	}
@@ -217,5 +255,13 @@ public class JoinedMeeting {
 
 	public void setInternalUserID(String internalUserID) {
 		this.internalUserID = internalUserID;
+	}
+
+	public String getAuthToken() {
+		return authToken;
+	}
+
+	public void setAuthToken(String authToken) {
+		this.authToken = authToken;
 	}
 }

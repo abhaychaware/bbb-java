@@ -125,7 +125,16 @@ public abstract class JoinServiceBase {
 		try {
 			String joinResponse = getUrl(joinUrl);
 			log.debug("join response: {}", joinResponse);
-			joinedMeeting.parse(joinResponse);
+			// Added by Abhay Chaware for BBB 0.9 Compatibility. 
+			// In BBB 0.9 the response is in JSON compared to XML in older versions
+			if(getVersion().equals(ApplicationService.VERSION_0_9))
+			{
+				joinedMeeting.parse0Dot9(joinResponse);
+			}
+			else
+			{
+				joinedMeeting.parse(joinResponse);
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			log.error("Can't join the url {}", joinUrl);

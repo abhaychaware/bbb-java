@@ -4,6 +4,8 @@ public class ApplicationService {
 	public final static String VERSION_0_7 = "0.7";
 	public final static String VERSION_0_8 = "0.8";
 	public static final String VERSION_0_81 = "0.81";
+	// Added by Abhay Chaware for BBB 0.9 Compatibility
+	public static final String VERSION_0_9 = "0.9";
 	private String serverUrl;
 	private String serverVersion;
 	private int serverPort;

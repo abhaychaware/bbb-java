@@ -34,11 +34,16 @@ public class JoinServiceProxy {
 			return;
 		
 		joinService = null;
+		// Changed by Abhay Chaware for BBB 0.81 and 0.9 compatibility
 		if (isBigBlueButtonServer(serverUrl)) {
 			if (serverVersion.equals(new JoinService0Dot7().getVersion()))
 				joinService = new JoinService0Dot7();
 			else if (serverVersion.equals(new JoinService0Dot8().getVersion()))
 				joinService = new JoinService0Dot8();
+			else if (serverVersion.equals(new JoinService0Dot81().getVersion()))
+				joinService = new JoinService0Dot81();
+			else if (serverVersion.equals(new JoinService0Dot9().getVersion()))
+				joinService = new JoinService0Dot9();
 			else
 				log.debug("Unknown server version {}", serverVersion);
 			
@@ -49,10 +54,14 @@ public class JoinServiceProxy {
 	
 	public void setServer(String serverUrl, String salt) {
 		setServer(serverUrl);
-		
+		//Added by Abhay Chaware for BBB 0.81 compatibility
 		if (joinService != null
-				&& joinService.getClass() == JoinService0Dot8.class)
+				&& joinService.getClass() == JoinService0Dot8.class){
 			((JoinService0Dot8) joinService).setSalt(salt);
+		}else if (joinService != null
+				&& joinService.getClass() == JoinService0Dot81.class){
+			((JoinService0Dot81) joinService).setSalt(salt);
+		}
 	}
 	
 	public JoinServiceBase getJoinService() {

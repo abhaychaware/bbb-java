@@ -23,8 +23,13 @@ package org.mconf.bbb.chat;
 
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TimeZone;
 
 import com.flazr.amf.Amf0Object;
 
@@ -44,11 +49,28 @@ public class ChatMessage {
 	private String time;
 	private String language;
 	private String userId;
-	
+	// Additional 0.81 attributes
+	private String fromLang;
+	// Additional 0.91 attributes
+	private String chatType;
+	private String toUsername;
+	private String toUserID;
+	private String fromUsername;
+	private String fromUserID;
+	private String fromColor;
+	private String fromTimezoneOffset;
+	private String fromTime;
+
 	public ChatMessage() {
 		color = "0";
 		time = new SimpleDateFormat("HH:mm").format(System.currentTimeMillis());
 		language = "en";
+		// Initializing 0.81 attributes
+		fromLang = "en";
+		// Initializing 0.91 attributes
+		fromColor = color;
+		fromTimezoneOffset = getTimeZoneOffset();
+		fromTime = new Long(System.currentTimeMillis()).toString();
 	}
 	
 	public ChatMessage(Object object) {
@@ -93,17 +115,53 @@ public class ChatMessage {
 		}
 	}
 	
-	private Object encodeTypedObject() {
-		Amf0Object obj = new Amf0Object();
+	public Object encode0Dot9() {
+		return encodeMappedObject();
+}
+
+	public Object encode0Dot81() {
+		return encodeMappedObject0Dot81();
+}
+
+	private Map<String,Object> encodeMappedObject() {
+		Map<String,Object> obj = new HashMap<>();
 		obj.put("message", message);
-		obj.put("username", username);
-		obj.put("color", color);
-		obj.put("time", time);
-		obj.put("language", language);
-		obj.put("userid", userId);
-		obj.put("classname", "org.bigbluebutton.conference.service.chat.ChatObject");
+		obj.put("chatType", chatType);
+		obj.put("toUsername", toUsername);
+		obj.put("toUserID", toUserID);
+		obj.put("fromUsername", fromUsername);
+		obj.put("fromUserID", fromUserID);
+		obj.put("fromColor", fromColor);
+		obj.put("fromTimezoneOffset", fromTimezoneOffset);
+		obj.put("fromTime", fromTime);
 		return obj;
 	}
+	private Map<String,Object> encodeMappedObject0Dot81() {
+		Map<String,Object> obj = new HashMap<>();
+		obj.put("message", message);
+		obj.put("chatType", chatType);
+		obj.put("toUsername", toUsername);
+		obj.put("toUserID", toUserID);
+		obj.put("fromUsername", fromUsername);
+		obj.put("fromUserID", fromUserID);
+		obj.put("fromColor", fromColor);
+		obj.put("fromTimezoneOffset", fromTimezoneOffset);
+		obj.put("fromTime", fromTime);
+		obj.put("fromLang", fromLang);
+		return obj;
+	}
+
+private Object encodeTypedObject() {
+	Amf0Object obj = new Amf0Object();
+	obj.put("message", message);
+	obj.put("username", username);
+	obj.put("color", color);
+	obj.put("time", time);
+	obj.put("language", language);
+	obj.put("userid", userId);
+	obj.put("classname", "org.bigbluebutton.conference.service.chat.ChatObject");
+	return obj;
+}
 	
 	private Object encodeString() {
 		StringBuilder sb = new StringBuilder();
@@ -169,11 +227,88 @@ public class ChatMessage {
 		this.userId = userid;
 	}
 
+	public String getChatType() {
+		return chatType;
+	}
+
+	public void setChatType(String chatType) {
+		this.chatType = chatType;
+	}
+
+	public String getToUsername() {
+		return toUsername;
+	}
+
+	public void setToUsername(String toUsername) {
+		this.toUsername = toUsername;
+	}
+
+	public String getToUserID() {
+		return toUserID;
+	}
+
+	public void setToUserID(String toUserID) {
+		this.toUserID = toUserID;
+	}
+
+	public String getFromColor() {
+		return fromColor;
+	}
+
+	public void setFromColor(String fromColor) {
+		this.fromColor = fromColor;
+	}
+
+	public String getFromTimezoneOffset() {
+		return fromTimezoneOffset;
+	}
+
+	public void setFromTimezoneOffset(String fromTimezoneOffset) {
+		this.fromTimezoneOffset = fromTimezoneOffset;
+	}
+
+	public String getFromTime() {
+		return fromTime;
+	}
+
+	public void setFromTime(String fromTime) {
+		this.fromTime = fromTime;
+	}
+
+	public String getFromUsername() {
+		return fromUsername;
+	}
+
+	public void setFromUsername(String fromUsername) {
+		this.fromUsername = fromUsername;
+	}
+
+	public String getFromUserID() {
+		return fromUserID;
+	}
+
+	public void setFromUserID(String fromUserID) {
+		this.fromUserID = fromUserID;
+	}
+
 	@Override
 	public String toString() {
 		return "ChatMessage [color=" + color + ", language=" + language
 				+ ", message=" + message + ", time=" + time + ", userid="
 				+ userId + ", username=" + username + "]";
+	}
+	
+	public String getTimeZoneOffset()
+	{
+	    Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("GMT"), Locale.getDefault());
+	    String   timeZone = new SimpleDateFormat("Z").format(calendar.getTime());
+	    return timeZone.substring(0, 3) + ""+ timeZone.substring(3, 5);
+	}
+	public String getTimeZoneOffset0Dot81()
+	{
+	    Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("GMT"), Locale.getDefault());
+	    String   timeZone = new SimpleDateFormat("Z").format(calendar.getTime());
+	    return timeZone.substring(1, 3) + ""+ timeZone.substring(3, 5);
 	}
 	
 }
